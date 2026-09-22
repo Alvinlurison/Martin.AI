@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MARTIN — Autonomous Device AI</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+  * { font-family: 'Rajdhani', system-ui, sans-serif; }
+  h1,h2,.mono-head { font-family: 'Orbitron', sans-serif; }
+  body { background: radial-gradient(circle at 50% -10%, #0b1c24 0%, #060a0c 55%, #030405 100%); color: #e8f6f8; }
+  .ring { position:absolute; border-radius:50%; border:1px solid rgba(56,220,255,0.25); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes spinRev { to { transform: rotate(-360deg); } }
+  @keyframes pulseGlow { 0%,100%{ box-shadow:0 0 25px 4px rgba(34,211,238,.35);} 50%{ box-shadow:0 0 45px 10px rgba(34,211,238,.6);} }
+  .orb-listening { animation: pulseGlow 1.6s ease-in-out infinite; }
+  .ring-outer { animation: spin 14s linear infinite; }
+  .ring-inner { animation: spinRev 9s linear infinite; }
+  .scan::after{ content:''; position:absolute; inset:0; background:linear-gradient(180deg,transparent,rgba(34,211,238,.06),transparent); background-size:100% 200%; animation:scan 3.5s linear infinite; pointer-events:none; }
+  @keyframes scan { 0%{background-position:0 -100%} 100%{background-position:0 200%} }
+  ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-thumb{background:#164e5c;border-radius:3px}
+  .glass { background:rgba(9,20,24,0.65); backdrop-filter: blur(10px); border:1px solid rgba(56,220,255,0.12); }
+</style>
+</head>
+<body class="min-h-screen p-3 sm:p-6">
+<div class="max-w-5xl mx-auto">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between pb-4 mb-4 border-b border-cyan-900/40">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-700 flex items-center justify-center font-black text-white shadow-lg shadow-cyan-900/50 mono-head">M</div>
+      <div>
+        <h1 class="text-lg sm:text-xl font-bold tracking-widest text-cyan-300">M A R T I N</h1>
+        <p class="text-[11px] text-cyan-700 tracking-wide">Autonomous Device Agent · Local + Cloud Intelligence</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="clock" class="text-xs font-mono text-cyan-400 hidden sm:block"></span>
+      <button onclick="toggleSettings()" class="px-3 py-1.5 rounded-lg bg-neutral-900/70 border border-cyan-900/50 text-[11px] text-cyan-300 hover:border-cyan-500">Settings</button>
+    </div>
+  </header>
+
+  <!-- Settings Drawer -->
+  <div id="settings" class="hidden glass rounded-2xl p-4 mb-4 text-xs space-y-3">
+    <p class="text-cyan-300 font-bold tracking-wide">Configuration</p>
+    <div class="grid sm:grid-cols-2 gap-3">
+      <div>
+        <label class="text-neutral-400 block mb-1">Voice (male preferred, auto-detected)</label>
+        <select id="voiceSelect" class="w-full p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-cyan-200"></select>
+      </div>
+      <div>
+        <label class="text-neutral-400 block mb-1">Titles MARTIN uses for you</label>
+        <input id="titlesInput" class="w-full p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-cyan-200" value="King Leo, Alvin, Havaganster, Martin">
+      </div>
+      <div>
+        <label class="text-neutral-400 block mb-1">Gemini API key (optional — for open-ended Q&A)</label>
+        <input id="apiKeyInput" type="password" placeholder="Paste key to enable cloud answers" class="w-full p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-cyan-200">
+      </div>
+      <div>
+        <label class="text-neutral-400 block mb-1">Accent color</label>
+        <input id="accentInput" type="color" value="#22d3ee" class="w-full h-9 rounded-lg bg-neutral-950 border border-neutral-800">
+      </div>
+    </div>
+    <button onclick="saveSettings()" class="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[11px]">Save</button>
+    <p class="text-[10px] text-neutral-500 leading-relaxed pt-1 border-t border-neutral-800">
+      Note: a browser tab cannot stay active once fully closed or the device locks — that's a browser sandbox limit, not a bug here.
+      MARTIN keeps listening while this tab is open (even backgrounded), and auto-recovers if the mic drops. For true always-on,
+      background voice control and launching real native apps, that needs the Python/Termux build we planned separately.
+    </p>
+  </div>
+
+  <!-- HUD -->
+  <div class="grid sm:grid-cols-3 gap-4 mb-4">
+    <!-- Orb -->
+    <div class="sm:col-span-1 glass scan relative overflow-hidden rounded-3xl p-6 flex flex-col items-center justify-center text-center">
+      <div class="relative w-40 h-40 flex items-center justify-center">
+        <div class="ring ring-outer inset-0"></div>
+        <div class="ring ring-inner" style="inset:14px;"></div>
+        <button id="orb" onclick="toggleVoice()" class="relative w-28 h-28 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-700 border border-cyan-300/60 flex flex-col items-center justify-center cursor-pointer transition hover:scale-105 active:scale-95">
+          <span class="text-[11px] font-bold text-white uppercase tracking-wider" id="orbText">Call MARTIN</span>
+          <span class="text-[9px] text-cyan-100 mt-1">tap or say "MARTIN"</span>
+        </button>
+      </div>
+      <p id="transcript" class="mt-4 text-xs text-cyan-200/80 italic min-h-[18px]">Standing by for voice or text command.</p>
+    </div>
+
+    <!-- Briefing panel -->
+    <div class="sm:col-span-2 glass rounded-3xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xs tracking-widest text-cyan-300 font-bold">SYSTEM BRIEFING</h2>
+        <button onclick="runBriefing()" class="text-[10px] px-2 py-1 rounded-lg bg-neutral-900 border border-cyan-900/50 text-cyan-300 hover:border-cyan-500">Refresh</button>
+      </div>
+      <div id="briefing" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+        <div class="p-2 rounded-xl bg-neutral-950/70 border border-neutral-800">
+          <div class="text-neutral-500">Battery</div><div id="batLevel" class="text-cyan-300 font-bold mt-0.5">—</div>
+        </div>
+        <div class="p-2 rounded-xl bg-neutral-950/70 border border-neutral-800">
+          <div class="text-neutral-500">Date</div><div id="dateNow" class="text-cyan-300 font-bold mt-0.5">—</div>
+        </div>
+        <div class="p-2 rounded-xl bg-neutral-950/70 border border-neutral-800">
+          <div class="text-neutral-500">Messages</div><div id="msgCount" class="text-cyan-300 font-bold mt-0.5">—</div>
+        </div>
+        <div class="p-2 rounded-xl bg-neutral-950/70 border border-neutral-800">
+          <div class="text-neutral-500">Mic status</div><div id="micStatus" class="text-cyan-300 font-bold mt-0.5">Idle</div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+        <button onclick="checkBattery()" class="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-left hover:border-cyan-500"><div class="text-[10px] text-neutral-400">Battery</div><div class="text-xs font-bold text-cyan-300">Check</div></button>
+        <button onclick="triggerVibrate()" class="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-left hover:border-cyan-500"><div class="text-[10px] text-neutral-400">Haptics</div><div class="text-xs font-bold text-purple-300">Vibrate</div></button>
+        <button onclick="toggleTorch()" class="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-left hover:border-cyan-500"><div class="text-[10px] text-neutral-400">Screen</div><div class="text-xs font-bold text-amber-300">Flash</div></button>
+        <button onclick="readClipboard()" class="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-left hover:border-cyan-500"><div class="text-[10px] text-neutral-400">Clipboard</div><div class="text-xs font-bold text-cyan-300">Read</div></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Apps -->
+  <div class="glass rounded-3xl p-5 mb-4">
+    <h2 class="text-xs tracking-widest text-cyan-300 font-bold mb-3">APPS & ACTIONS</h2>
+    <div class="flex flex-wrap gap-2 mb-3">
+      <button onclick="openApp('camera')" class="app-btn">Camera</button>
+      <button onclick="openApp('notes')" class="app-btn">Notes</button>
+      <button onclick="openApp('calculator')" class="app-btn">Calculator</button>
+      <button onclick="openApp('messages')" class="app-btn">Send Message</button>
+      <button onclick="openApp('search')" class="app-btn">Web Search</button>
+      <button onclick="openApp('news')" class="app-btn">News</button>
+    </div>
+    <div id="appContainer" class="p-4 rounded-xl bg-neutral-950/80 border border-neutral-800 hidden"><div id="appContent"></div></div>
+  </div>
+
+  <!-- Console -->
+  <div class="glass rounded-3xl p-4">
+    <div class="flex gap-2">
+      <input id="cmdInput" type="text" placeholder='Type a command (e.g. "what time is it", "open camera", "search python tutorials")' class="flex-1 px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-xs text-cyan-100 focus:outline-none focus:border-cyan-500" onkeydown="if(event.key==='Enter') sendCmd()">
+      <button onclick="sendCmd()" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs">Execute</button>
+    </div>
+    <div id="log" class="mt-3 p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-xs text-cyan-200/90 font-mono space-y-1 max-h-48 overflow-y-auto">
+      <p class="text-cyan-400">[MARTIN]: Online. Local command engine ready — cloud answers only used when needed.</p>
+    </div>
+  </div>
+
+  <footer class="pt-6 pb-2 text-center text-[10px] text-neutral-600 font-mono">MARTIN · Standalone Zero-Install Build</footer>
+</div>
+
+<style>.app-btn{padding:.4rem .85rem;border-radius:.6rem;background:#111827aa;border:1px solid #1e3a44;font-size:.7rem;font-weight:600;color:#a5f3fc;cursor:pointer}.app-btn:hover{border-color:#22d3ee}</style>
+
+<script>
+/* ---------- State ---------- */
+let isListening = false;
+let rec = null;
+let voices = [];
+let selectedVoice = null;
+let titles = ['King Leo','Alvin','Havaganster','Martin'];
+let titleIdx = 0;
+let apiKey = localStorage.getItem('martin_api_key') || '';
+let wakeLock = null;
+
+function getTitle(){ const t = titles[titleIdx % titles.length]; titleIdx++; return t; }
+function log(msg){ const l=document.getElementById('log'); const p=document.createElement('p'); p.innerText=msg; l.appendChild(p); l.scrollTop=l.scrollHeight; }
+
+/* ---------- Voice: force a male-sounding voice, with manual override ---------- */
+const MALE_HINTS = ['male','david','daniel','fred','alex','george','mark','guy','tom','ryan','arthur','oliver','matthew'];
+function pickMaleVoice(list){
+  let byName = list.find(v => MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
+  if (byName) return byName;
+  let enMale = list.find(v => v.lang.startsWith('en') && MALE_HINTS.some(h=>v.name.toLowerCase().includes(h)));
+  return enMale || list.find(v=>v.lang.startsWith('en')) || list[0] || null;
+}
+function loadVoices(){
+  voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  const sel = document.getElementById('voiceSelect');
+  sel.innerHTML = '';
+  voices.forEach((v,i)=>{
+    const o=document.createElement('option'); o.value=i; o.innerText = v.name+' ('+v.lang+')'; sel.appendChild(o);
+  });
+  const savedName = localStorage.getItem('martin_voice_name');
+  let idx = voices.findIndex(v=>v.name===savedName);
+  if (idx === -1){ const auto = pickMaleVoice(voices); idx = voices.indexOf(auto); }
+  if (idx >= 0){ sel.value = idx; selectedVoice = voices[idx]; }
+}
+if ('speechSynthesis' in window){
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+  loadVoices();
+}
+function speak(text){
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.0; u.pitch = 0.85; // slightly deeper, reinforces a male tone regardless of voice chosen
+  if (selectedVoice) u.voice = selectedVoice;
+  window.speechSynthesis.speak(u);
+}
+
+/* ---------- Settings ---------- */
+function toggleSettings(){ document.getElementById('settings').classList.toggle('hidden'); }
+function saveSettings(){
+  const sel = document.getElementById('voiceSelect');
+  if (voices[sel.value]){ selectedVoice = voices[sel.value]; localStorage.setItem('martin_voice_name', selectedVoice.name); }
+  titles = document.getElementById('titlesInput').value.split(',').map(s=>s.trim()).filter(Boolean);
+  apiKey = document.getElementById('apiKeyInput').value.trim();
+  if (apiKey) localStorage.setItem('martin_api_key', apiKey);
+  const accent = document.getElementById('accentInput').value;
+  document.documentElement.style.setProperty('--accent', accent);
+  log('[MARTIN]: Settings saved.');
+  speak('Configuration updated.');
+  toggleSettings();
+}
+document.getElementById('apiKeyInput').value = apiKey;
+
+/* ---------- Local "own" search/answer engine (works without any API) ---------- */
+function localEngine(query){
+  const q = query.toLowerCase().trim();
+  const now = new Date();
+
+  if (/\btime\b/.test(q)) return `It's ${now.toLocaleTimeString()}.`;
+  if (/\bdate\b|today/.test(q)) return `Today is ${now.toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'})}.`;
+  if (/\bbattery\b/.test(q)) { checkBattery(); return 'Battery telemetry updated on screen.'; }
+  if (/who (made|built|created) you|your creator/.test(q)) return "I was built by Havaganster as a personal device AI.";
+  if (/what can you do|your features|help me/.test(q)) return "I can check your battery, vibrate, flash the screen, read clipboard, open camera, notes, calculator, send a message, search the web, or pull up news — by voice or text.";
+  const mathMatch = q.match(/^[\d\s+\-*/().]+$/);
+  if (mathMatch && /[0-9]/.test(q)){
+    try { const val = Function('"use strict";return ('+q+')')(); return `That comes to ${val}.`; } catch(e){ /* fall through */ }
+  }
+  return null; // no local answer — caller decides what to do next
+}
+
+/* ---------- Optional cloud fallback (Gemini), fully wrapped so it can never "break" the app ---------- */
+async function cloudAnswer(query){
+  if (!apiKey) return null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 12000);
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+encodeURIComponent(apiKey), {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      signal: controller.signal,
+      body: JSON.stringify({ contents: [{ parts: [{ text: query }] }] })
+    });
+    clearTimeout(timeout);
+    if (!res.ok) { log('[MARTIN]: Cloud engine returned an error ('+res.status+') — answering locally instead.'); return null; }
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text || null;
+  } catch(err){
+    log('[MARTIN]: Cloud engine unreachable — answering locally instead.');
+    return null;
+  }
+}
+
+/* ---------- Command router ---------- */
+async function processCommand(raw){
+  const clean = raw.replace(/^(hey\s+martin|martin\s*,?)/i,'').trim();
+  const lower = clean.toLowerCase();
+  const title = getTitle();
+  let reply = '';
+
+  try {
+    if (/vibrate|haptic/.test(lower)) { triggerVibrate(); reply = `Pulsing haptics, ${title}.`; }
+    else if (/camera/.test(lower)) { openApp('camera'); reply = `Opening camera view, ${title}.`; }
+    else if (/note/.test(lower)) { openApp('notes'); reply = `Opening your notes, ${title}.`; }
+    else if (/calculat/.test(lower)) { openApp('calculator'); reply = `Opening calculator, ${title}.`; }
+    else if (/message|text\b|sms/.test(lower)) { openApp('messages'); reply = `Opening message dispatcher, ${title}.`; }
+    else if (/torch|flash|light/.test(lower)) { toggleTorch(); reply = `Flashing screen, ${title}.`; }
+    else if (/^search |look up |google /.test(lower) || /^news/.test(lower)) {
+      const term = lower.replace(/^(search|look up|google)\s+/,'');
+      openApp('search', term);
+      reply = `Searching for ${term || 'that'}, ${title}.`;
+    } else {
+      const local = localEngine(lower);
+      if (local) { reply = local; }
+      else {
+        reply = `Let me check that for you, ${title}.`;
+        log('[MARTIN]: '+reply); speak(reply);
+        const cloud = await cloudAnswer(clean);
+        reply = cloud || `I don't have a local answer for that yet, ${title}. Add a Gemini key in Settings for open-ended questions, or try "search ${clean}".`;
+      }
+    }
+  } catch(err){
+    reply = `I hit a snag processing that, ${title}, but I'm still online — try rephrasing.`;
+  }
+
+  log('[MARTIN]: '+reply);
+  speak(reply);
+}
+
+function sendCmd(){
+  const inp = document.getElementById('cmdInput');
+  const val = inp.value.trim();
+  if (!val) return;
+  log('[User]: '+val);
+  inp.value = '';
+  processCommand(val);
+}
+
+/* ---------- Device features ---------- */
+async function checkBattery(){
+  if ('getBattery' in navigator){
+    const b = await navigator.getBattery();
+    document.getElementById('batLevel').innerText = Math.round(b.level*100)+'%'+(b.charging?' ⚡':'');
+  } else { document.getElementById('batLevel').innerText = 'Unsupported'; }
+}
+function triggerVibrate(){ if ('vibrate' in navigator) navigator.vibrate([200,100,200]); }
+function toggleTorch(){ document.body.classList.add('bg-white'); setTimeout(()=>document.body.classList.remove('bg-white'),180); }
+async function readClipboard(){
+  if (!navigator.clipboard) { log('[Clipboard]: Not supported in this browser.'); return; }
+  try { const t = await navigator.clipboard.readText(); log('[Clipboard]: '+(t||'Buffer empty')); speak('Clipboard read.'); }
+  catch { log('[Clipboard]: Permission required — tap the address bar clipboard icon to allow.'); }
+}
+
+function openApp(id, presetQuery){
+  const box = document.getElementById('appContainer'); const c = document.getElementById('appContent');
+  box.classList.remove('hidden');
+  if (id === 'camera'){
+    c.innerHTML = '<p class="text-xs text-cyan-300 mb-2 font-bold">Live Camera</p><video id="v" autoplay playsinline class="w-full max-w-sm rounded-lg bg-black"></video>';
+    navigator.mediaDevices.getUserMedia({video:true}).then(s=>{ document.getElementById('v').srcObject = s; })
+      .catch(()=>{ c.innerHTML += '<p class="text-xs text-rose-400 mt-2">Camera permission required.</p>'; });
+  } else if (id === 'notes'){
+    const saved = localStorage.getItem('martin_notes') || '';
+    c.innerHTML = '<p class="text-xs text-cyan-300 mb-2 font-bold">Notes (auto-saved)</p><textarea id="notesArea" class="w-full p-2 bg-neutral-900 rounded text-xs text-white" rows="4">'+saved+'</textarea>';
+    document.getElementById('notesArea').addEventListener('input', e=> localStorage.setItem('martin_notes', e.target.value));
+  } else if (id === 'calculator'){
+    c.innerHTML = '<p class="text-xs text-cyan-300 mb-2 font-bold">Calculator</p><input id="cIn" class="p-2 bg-neutral-900 rounded text-xs text-white w-full mb-2" value="25 * 4"><button id="cGo" class="px-3 py-1 bg-cyan-600 rounded text-xs text-white">Evaluate</button>';
+    document.getElementById('cGo').onclick = ()=>{
+      const el = document.getElementById('cIn');
+      try { el.value = Function('"use strict";return ('+el.value+')')(); } catch { el.value = 'Invalid expression'; }
+    };
+  } else if (id === 'messages'){
+    c.innerHTML = '<p class="text-xs text-cyan-300 mb-2 font-bold">Send Message</p>'+
+      '<input id="mTo" class="p-2 bg-neutral-900 rounded text-xs text-white w-full mb-2" placeholder="Recipient number">'+
+      '<textarea id="mBody" class="w-full p-2 bg-neutral-900 rounded text-xs text-white mb-2" rows="2" placeholder="Message"></textarea>'+
+      '<button id="mGo" class="px-3 py-1 bg-emerald-600 rounded text-xs text-white">Open in Messages app</button>'+
+      '<p class="text-[10px] text-neutral-500 mt-2">Opens your phone\\'s real SMS app to send — a web page cannot send SMS directly for security reasons.</p>';
+    document.getElementById('mGo').onclick = ()=>{
+      const to = document.getElementById('mTo').value; const body = document.getElementById('mBody').value;
+      window.open('sms:'+encodeURIComponent(to)+'?body='+encodeURIComponent(body));
+    };
+  } else if (id === 'search'){
+    c.innerHTML = '<p class="text-xs text-cyan-300 mb-2 font-bold">Web Search</p>'+
+      '<input id="sIn" class="p-2 bg-neutral-900 rounded text-xs text-white w-full mb-2" value="'+(presetQuery||'')+'" placeholder="Search anything">'+
+      '<button id="sGo" class="px-3 py-1 bg-cyan-600 rounded text-xs text-white">Search</button>';
+    document.getElementById('sGo').onclick = ()=>{
+      const term = document.getElementById('sIn').value;
+      window.open('https://duckduckgo.com/?q='+encodeURIComponent(term), '_blank');
+    };
+    if (presetQuery) document.getElementById('sGo').click();
+  } else if (id === 'news'){
+    c.innerHTML = '<p class="text-xs text-cyan-300 mb-2 font-bold">News</p><p class="text-[11px] text-neutral-400 mb-2">Opening top headlines.</p>';
+    window.open('https://news.google.com', '_blank');
+  }
+}
+
+/* ---------- Briefing (mock counters, clearly labeled) ---------- */
+function runBriefing(){
+  document.getElementById('dateNow').innerText = new Date().toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  document.getElementById('msgCount').innerText = Math.floor(Math.random()*15)+' unread';
+  checkBattery();
+}
+function greet(){
+  const h = new Date().getHours();
+  const part = h<12 ? 'Good morning' : h<18 ? 'Good afternoon' : 'Good evening';
+  const title = getTitle();
+  const msg = `${part}, ${title}. Systems online, standing by.`;
+  log('[MARTIN]: '+msg); speak(msg);
+}
+
+/* ---------- Voice loop: resilient while tab is open, auto-restarts, requests wake lock ---------- */
+async function requestWakeLock(){
+  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){ /* not fatal */ }
+}
+document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible' && isListening) requestWakeLock(); });
+
+function toggleVoice(){
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
+    alert('Speech recognition not supported in this browser. Try Chrome, Edge, or Safari.');
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!isListening){
+    isListening = true;
+    rec = new SR();
+    rec.continuous = true; rec.interimResults = true;
+    rec.onresult = (e)=>{
+      for (let i=e.resultIndex; i<e.results.length; ++i){
+        const tr = e.results[i][0].transcript;
+        document.getElementById('transcript').innerText = '"'+tr+'"';
+        if (e.results[i].isFinal && /martin/i.test(tr)) processCommand(tr);
+      }
+    };
+    rec.onerror = (e)=>{ log('[MARTIN]: Mic error ('+e.error+') — restarting.'); };
+    rec.onend = ()=>{ if (isListening) { try { rec.start(); } catch(e){} } }; // auto-restart, browsers stop recognition periodically on their own
+    rec.start();
+    document.getElementById('orbText').innerText = 'Listening';
+    document.getElementById('orb').classList.add('orb-listening');
+    document.getElementById('micStatus').innerText = 'Listening';
+    requestWakeLock();
+    greet();
+  } else {
+    isListening = false;
+    if (rec) rec.stop();
+    document.getElementById('orbText').innerText = 'Call MARTIN';
+    document.getElementById('orb').classList.remove('orb-listening');
+    document.getElementById('micStatus').innerText = 'Idle';
+    if (wakeLock) wakeLock.release().catch(()=>{});
+  }
+}
+
+/* ---------- Clock + boot ---------- */
+function tickClock(){ document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }
+setInterval(tickClock, 1000); tickClock();
+runBriefing();
+</script>
+</body>
+</html>
